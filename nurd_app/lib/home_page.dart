@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:nurd/blinker_arrow.dart';
 import 'package:nurd/clock_widget.dart';
 import 'package:redis/redis.dart';
@@ -15,9 +14,8 @@ class MyHomePage extends StatefulWidget {
 }
 
 String redisIPScooter = "192.168.7.1";
-int redisPortScooter = 6379;
 String redisIPLocal = "192.168.193.247";
-int redisPortLocal = 6379;
+int redisPort = 6379;
 
 bool useLocalRedis = true;
 
@@ -33,10 +31,12 @@ class _MyHomePageState extends State<MyHomePage> {
     try {
       Command cmd;
       if (useLocalRedis) {
-        cmd = await link.connect(redisIPLocal, redisPortLocal);
+        cmd = await link.connect(redisIPLocal, redisPort);
       } else {
-        cmd = await link.connect(redisIPScooter, redisPortScooter);
+        cmd = await link.connect(redisIPScooter, redisPort);
       }
+      await cmd.send_object(["HSET", "dashboard", "ready", "true"]);
+      await cmd.send_object(["PUBLISH", "dashboard", "ready"]);
       setState(() {
         _connected = true;
       });
