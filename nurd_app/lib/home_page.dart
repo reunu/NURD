@@ -30,7 +30,7 @@ class _MyHomePageState extends State<MyHomePage> {
   LatLng _location = const LatLng(50.930422, 11.592763); // change later
   double _rotation = 0;
   late final RedisConnection link;
-  late final MapController mapController;
+  final MapController mapController = MapController();
 
   void _connectRedis() async {
     link = RedisConnection();
@@ -142,9 +142,7 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           Expanded(
             child: FlutterMap(
-              mapController: mapController = MapController(
-
-              ),
+              mapController: mapController,
               options: const MapOptions(
                 initialCenter: LatLng(50.930422, 11.592763), // change later
                 initialZoom: 18.0,
