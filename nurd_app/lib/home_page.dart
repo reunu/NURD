@@ -6,6 +6,9 @@ import 'package:nurd/blinker_arrow.dart';
 import 'package:nurd/clock_widget.dart';
 import 'package:redis/redis.dart';
 
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key});
 
@@ -24,7 +27,10 @@ class _MyHomePageState extends State<MyHomePage> {
   int _speed = 0;
   bool _blinkLeft = false;
   bool _blinkRight = false;
+  LatLng _location = const LatLng(50.930422, 11.592763); // change later
+  double _rotation = 0;
   late final RedisConnection link;
+  final MapController mapController = MapController();
 
   void _connectRedis() async {
     link = RedisConnection();
@@ -54,6 +60,30 @@ class _MyHomePageState extends State<MyHomePage> {
           _speed = int.parse(speedRes);
         });
       });
+      cmd.send_object(["HGET", "gps", "latitude"]).then((latStr) {
+        final lat = double.parse(latStr);
+        setState(() {
+          _location = LatLng(lat, _location.longitude);
+          mapController.move(_location, 18);
+        });
+      });
+
+      cmd.send_object(["HGET", "gps", "longitude"]).then((lonStr) {
+        final lon = double.parse(lonStr);
+        setState(() {
+          _location = LatLng(_location.latitude, lon);
+          mapController.move(_location, 18);
+        });
+      });
+
+      cmd.send_object(["HGET", "gps", "course"]).then((courseStr) {
+        final rotation = double.parse(courseStr);
+        setState(() {
+          _rotation = rotation;
+          mapController.rotate(_rotation);
+        });
+      });
+
       cmd.send_object(["HGET", "vehicle", "blinker:state"]).then((blinkerRes) {
         if (blinkerRes == "left") {
           setState(() {
@@ -84,67 +114,85 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
+        body:
+       Column(
         children: [
-          SizedBox(
-            height: 40,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Clock(
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
-                  ),
+          Padding(padding: const EdgeInsetsDirectional.all(8),
+              child: SizedBox(
+                height: 40,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Clock(
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24,
+                      ),
+                    ),
+                    const FlutterLogo(size: 32),
+                    Icon(
+                      _connected ? Icons.link_rounded : Icons.link_off_rounded,
+                      color: _connected ? Colors.white : Colors.red,
+                      weight: 900,
+                      size: 32,
+                    )
+                  ],
                 ),
-                Icon(
-                  _connected ? Icons.link_rounded : Icons.link_off_rounded,
-                  color: _connected ? Colors.white : Colors.red,
-                  weight: 900,
-                  size: 32,
-                )
+              ),
+          ),
+          Expanded(
+            child: FlutterMap(
+              mapController: mapController,
+              options: const MapOptions(
+                initialCenter: LatLng(50.930422, 11.592763), // change later
+                initialZoom: 18.0,
+                maxZoom: 19,
+                minZoom: 18,
+                initialRotation: 42,
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'dev.fleaflet.flutter_map.example',
+                  // Plenty of other options available!
+                ),
               ],
             ),
           ),
-          const Expanded(
-            child: Center(
-              child: FlutterLogo(size: 128),
-            ),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              BlinkerArrow(
-                blink: _blinkLeft,
-                direction: BlinkerDirection.left,
-              ),
-              Column(
-                children: [
-                  Text(
-                    _speed.toString(),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 64,
-                      height: 1,
+          Padding(padding: const EdgeInsetsDirectional.all(8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                BlinkerArrow(
+                  blink: _blinkLeft,
+                  direction: BlinkerDirection.left,
+                ),
+                Column(
+                  children: [
+                    Text(
+                      _speed.toString(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 64,
+                        height: 1,
+                      ),
                     ),
-                  ),
-                  const Text("km/h",
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
-                      )),
-                ],
-              ),
-              BlinkerArrow(
-                blink: _blinkRight,
-                direction: BlinkerDirection.right,
-              ),
-            ],
-          )
+                    const Text("km/h",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey,
+                        )),
+                  ],
+                ),
+                BlinkerArrow(
+                  blink: _blinkRight,
+                  direction: BlinkerDirection.right,
+                ),
+              ],
+            )
+          ),
         ],
       ),
-    ));
+    );
   }
 }
